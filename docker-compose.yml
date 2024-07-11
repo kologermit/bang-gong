@@ -1,0 +1,139 @@
+version: '3'
+
+services:
+  db:
+    image: postgres:13-alpine
+    volumes:
+      - db-volume:/var/lib/postgresql/data
+      - ./db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-12345}
+      - POSTGRES_DB=${DB_NAME:-bang}
+    ports:
+      - ${DB_EXTERNAL_PORT:-5432}:5432
+    networks:
+      - api_db_network
+      - player_db_network
+
+  cache:
+    image: redis:latest
+    environment:
+      - REDIS_USER=${CACHE_USER:-admin}
+      - REDIS_USER_PASSWORD=${CACHE_USER_PASSWORD:-12345}
+      - REDIS_PASSWORD=${CACHE_PASSWORD:-12345}
+    ports:
+      - ${CACHE_EXTERNAL_PORT:-6379}:6379
+    networks:
+      - api_cache_network
+      - player_cache_network
+
+  player:
+    build: ./player
+    volumes:
+      - ./player:/app:ro
+      - player-logs-volume:/logs
+      - tmp-volume:/tmp
+    environment:
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-12345}
+      - DB_NAME=${DB_NAME:-bang}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - CACHE_USER=${CHACHE_USER:-admin}
+      - CACHE_USER_PASSWORD=${CACHE_USER_PASSWORD:-12345}
+      - CACHE_HOST=cache
+      - CACHE_PORT=6379
+      - API_HOST=api
+      - API_PORT=8000
+      - PLAYER_LOGS=/logs
+      - PLAYER_TMP=/tmp
+    networks:
+      - player_db_network
+      - player_cache_network
+      - api_player_network
+    depends_on:
+      - db
+      - cache
+
+  api:
+    build: ./api
+    volumes:
+      - ./api:/app:ro
+      - api-logs-volume:/logs
+      - tmp-volume:/tmp
+    environment:
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-12345}
+      - DB_NAME=${DB_NAME:-bang}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - CACHE_USER=${CHACHE_USER:-admin}
+      - CACHE_USER_PASSWORD=${CACHE_USER_PASSWORD:-12345}
+      - CACHE_HOST=cache
+      - CACHE_PORT=6379
+      - DOC_HOST=${DOC_HOST:-http://localhost:8001}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_LOGS_DIR=/logs
+      - API_TMP=/tmp
+    ports:
+      - ${API_EXTERNAL_PORT:-8000}:8000
+    networks:
+      - api_db_network
+      - api_cache_network
+      - api_player_network
+    depends_on:
+      - db
+      - cache
+      - player
+
+  browser-client:
+    image: nginx:latest
+    volumes:
+      - ./browser-client/build:/usr/share/nginx/html:ro
+      - ./nginx/mime.types:/etc/nginx/:ro
+    environment:
+      - SERVER_NAME=${BROWSER_CLIENT_SERVER_NAME:-localhost}
+      - API_HOST=${API_HOST:-http://localhost:8000}
+    ports:
+      - ${BROWSER_CLIENT_EXTERNAL_PORT:-80}:80
+    depends_on:
+      - api
+
+  moderation-client:
+    image: nginx:latest
+    volumes:
+      - ./moderation-client/build:/usr/share/nginx/html:ro
+      - ./nginx/mime.types:/etc/nginx/:ro
+    environment:
+      - SERVER_NAME=${MODERATION_CLIENT_SERVER_NAME:-localhost}
+      - API_HOST=${API_HOST:-http://localhost:8000}
+    ports:
+      - ${MODERATION_CLIENT_EXTERNAL_PORT:-81}:80
+    depends_on:
+      - api
+
+  doc:
+    image: swaggerapi/swagger-ui
+    ports:
+      - ${DOC_EXTERNAL_PORT:-8001}:8080
+    volumes:
+      - ./api.yml:/usr/share/nginx/html/swagger/api.yaml:ro
+    environment:
+      API_URL: swagger/api.yaml
+    depends_on:
+      - api
+
+volumes:
+  db-volume:
+  api-logs-volume:
+  player-logs-volume:
+  tmp-volume:
+
+networks:
+  api_cache_network:
+  api_db_network:
+  api_player_network:
+  player_cache_network:
+  player_db_network:

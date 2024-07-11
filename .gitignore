@@ -20,3 +20,20 @@
 # Go workspace file
 go.work
 go.work.sum
+
+.vscode
+
+# Run binary
+run
+build/
+
+# Logs
+./api/logs
+./player/logs
+
+# Temps
+tmp/
+node-modules/
+
+# Docker env
+.env
