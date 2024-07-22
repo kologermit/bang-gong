@@ -92,7 +92,7 @@ services:
     image: nginx:latest
     volumes:
       - ./browser-client/build:/usr/share/nginx/html:ro
-      - ./nginx/mime.types:/etc/nginx/:ro
+      - ./nginx:/etc/nginx/:ro
     environment:
       - SERVER_NAME=${BROWSER_CLIENT_SERVER_NAME:-localhost}
       - API_HOST=${API_HOST:-http://localhost:8000}
@@ -105,7 +105,7 @@ services:
     image: nginx:latest
     volumes:
       - ./moderation-client/build:/usr/share/nginx/html:ro
-      - ./nginx/mime.types:/etc/nginx/:ro
+      - ./nginx:/etc/nginx/:ro
     environment:
       - SERVER_NAME=${MODERATION_CLIENT_SERVER_NAME:-localhost}
       - API_HOST=${API_HOST:-http://localhost:8000}
@@ -115,13 +115,13 @@ services:
       - api
 
   doc:
-    image: swaggerapi/swagger-ui
+    build: ./doc
+    environment:
+      - API_HOST=${API_HOST:-http://localhost:8000}
     ports:
       - ${DOC_EXTERNAL_PORT:-8001}:8080
     volumes:
-      - ./api.yml:/usr/share/nginx/html/swagger/api.yaml:ro
-    environment:
-      API_URL: swagger/api.yaml
+      - ./doc/doc.yml:/entrypoint/doc.yml:ro
     depends_on:
       - api
 
